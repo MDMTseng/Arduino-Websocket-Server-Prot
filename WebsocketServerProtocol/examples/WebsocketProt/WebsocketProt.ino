@@ -1,50 +1,32 @@
 /*
- Advanced Chat Server
+ Advanced Chat Server Protocol
 
- A more advanced server that distributes any incoming messages
- to all connected clients but the client the message comes from.
- To use telnet to  your device's IP address and type.
- You can see the client's input in the serial monitor as well.
- Using an Arduino Wiznet Ethernet shield.
+ This example demostrate a simple echo server.
+ It demostrate how the library <WebSocketProtocol.h> works 
+ and how to handle the state changes.
+ 
+ dependent library:WIZNET <Ethernet.h>
+ 
 
- Circuit:
- * Ethernet shield attached to pins 10, 11, 12, 13
- * Analog inputs attached to pins A0 through A5 (optional)
 
- created 18 Dec 2009
- by David A. Mellis
- modified 9 Apr 2012
- by Tom Igoe
- redesigned to make use of operator== 25 Nov 2013
- by Norbert Truchsess
-
+ created 11 June 2014
+ by MDM Tseng
  */
 
 #include <SPI.h>
 #include <Ethernet.h>
 #include <WebSocketProtocol.h>
 #include "utility/w5100.h"
-
-#include "Eth_Boost.h"
-#include "RingBuff.h"
-// Enter a MAC address and IP address for your controller below.
-// The IP address will be dependent on your local network.
-// gateway and subnet are optional:
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
 };
 IPAddress ip(10, 0, 0, 52);
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 0, 0);
-
-
-// telnet defaults to port 23
 EthernetServer server(5213);
 
-//EthernetClient clients[4];
 WebSocketProtocol WSP[4];
 
-RingBuff RB;
 char buff[600];
 char *buffiter;
 void setup() {
@@ -54,11 +36,7 @@ void setup() {
   server.begin();
   // Open serial communications and wait for port to open:
   Serial.begin(57600);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for Leonardo only
-  }
 
-  cb_init(&RB, buff, sizeof(buff));
 
   Serial.print("Chat server address:");
   Serial.println(Ethernet.localIP());
@@ -72,11 +50,11 @@ void loop() {
   clearUnavalibleClient();
     buffiter = buff;
     byte KL = 0;
-    if (client.available() > 0) {
-      RB.head=RB.tail=RB.buffer;
-      KL = RECVData(&RB, client._sock);
+    buffiter=buff;
+    KL=client.available();
+    for(;KL;KL--) {
+      *(buffiter++)=client.read();
     }
-   // WSP[0].setClientOBJ((void*)&client);
     WebSocketProtocol* WSPptr  =findFromProt(client);
       Serial.println(WSPptr-WSP);
     if(WSPptr==null)
@@ -113,7 +91,6 @@ void loop() {
     //Serial.println();
     recvData -= 2;
     recvData[0] = 0x81;
-    //Serial.print(recvData + 2);
     client.print(recvData); return;
   }
 }
@@ -124,8 +101,8 @@ void clearUnavalibleClient()
     EthernetClient Rc=WSP[i].getClientOBJ();
     if(Rc&&Rc.status()==SnSR::CLOSED)
     {
-  Serial.print("clear unused sock::");
-  Serial.println(Rc._sock);
+      Serial.print("clear unused sock::");
+      Serial.println(Rc._sock);
       Rc.stop();
       WSP[i].rmClientOBJ();
     }
@@ -147,7 +124,7 @@ WebSocketProtocol* findFromProt(EthernetClient client)
     }
   }
   
-  Serial.println("NO exist, find available");
+  Serial.println("NO exist client, find available");
   for(byte i=0;i<4;i++)
   {
     if(!WSP[i].getClientOBJ())
