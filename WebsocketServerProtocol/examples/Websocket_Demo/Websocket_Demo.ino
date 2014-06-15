@@ -1,17 +1,4 @@
 /*
- Advanced Chat Server Protocol
-
- This example demostrate a simple echo server.
- It demostrate how the library <WebSocketProtocol.h> works
- and how to handle the state changes.
-
- dependent library:WIZNET <Ethernet.h>
- additional library:<ETH_Extra.h> for setting time out and send 1 byte ping test to check client 
-
- created 12 June 2014
- by MDM Tseng
- */
-/*
  Websocket Server Protocol
 
  This example demostrate a simple echo server.
@@ -158,7 +145,7 @@ void PingAllClient()
       buff[2] = 1;
       buff[3] = 0;
       WSP[i].getClientOBJ().print(buff);*/
-      testLink(WSP[i].getClientOBJ()._sock);
+      TestAlive(WSP[i].getClientOBJ()._sock);
     }
 }
 byte countConnected()

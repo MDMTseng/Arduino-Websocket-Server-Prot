@@ -31,6 +31,12 @@
 #define SnCR      0x1   //sock CMD
 #define SnCR_SEND_KEEP 0x22
 
+#define SnDIPR      0xC//sock IP
+#define SnDHAR      0x6//sock MAC
+
+
+#define MaxSockNumber 4
+
 #define ADDR(CMD,_SOCK) (_SOCK*_SOCKINC+_SOCKBASE+CMD)
 
 
@@ -41,7 +47,9 @@ inline unsigned char SPI_Read(unsigned int addr);
 
 byte ReadSn_IR(byte _sock);
 void setRetryTimeout(byte retryTimes,unsigned int TimeOut100us);
-void testLink(byte _sock);
+void TestAlive(byte _sock);
+void GetMAC(byte* buff,byte _sock);
+void GetIP(byte* buff,byte _sock);
 
 #ifdef __cplusplus
 }

@@ -88,7 +88,21 @@ void setRetryTimeout(byte retryTimes,unsigned int TimeOut100us)
 	  SPI_Write16(RTR,TimeOut100us);
 		SPI_Write(RCR,retryTimes);
 }
-void testLink(byte _sock)
+
+void TestAlive(byte _sock)
 {
 	return SPI_Write(ADDR(SnCR,_sock),SnCR_SEND_KEEP);
+}
+
+void GetIP(byte* buff,byte _sock)
+{
+	byte i=0;
+	for(;i<4;i++)
+		buff[i]= SPI_Read(ADDR(SnDIPR,_sock)+i);
+}
+void GetMAC(byte* buff,byte _sock)
+{
+	byte i=0;
+	for(;i<6;i++)
+		buff[i]= SPI_Read(ADDR(SnDHAR,_sock)+i);
 }
