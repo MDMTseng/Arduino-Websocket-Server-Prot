@@ -40,7 +40,7 @@ WebSocketProtocol WSP[4];
 char buff[600];
 char *buffiter;
 
-char retPackage[20];
+char retPackage[60];
 void setup() {
   Ethernet.begin(mac, ip, gateway, subnet);
   server.begin();
@@ -59,7 +59,6 @@ void loop() {
   // wait for a new client:
   if(counter2Pin++>1000)
   {
-    counter2Pin=0;
     PingAllClient();
     clearUnreachableClient();
     
@@ -67,10 +66,14 @@ void loop() {
     retPackage[0]=0x81;
     sprintf((retPackage+2),"Your Socket: @  Total live: %d",LiveClient);
     retPackage[1]=strlen(retPackage+2);
+    counter2Pin=0;
   }
+  delay(10>>LiveClient);
   EthernetClient client = server.available();
 
-  if (client) {
+  if (!client)return;
+  
+  
 
     buffiter = buff;
     unsigned int  KL = 0;
@@ -116,7 +119,7 @@ void loop() {
    // WSPptr->getClientOBJ().print(recvData-2);
     retPackage[15]=client._sock+'0';
     WSPptr->getClientOBJ().print(retPackage);
-  }
+  
 }
 void clearUnreachableClient()
 {

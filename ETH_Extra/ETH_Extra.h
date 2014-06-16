@@ -47,9 +47,9 @@ inline unsigned char SPI_Read(unsigned int addr);
 
 byte ReadSn_IR(byte _sock);
 void setRetryTimeout(byte retryTimes,unsigned int TimeOut100us);
-void TestAlive(byte _sock);
-void GetMAC(byte* buff,byte _sock);
-void GetIP(byte* buff,byte _sock);
+void testAlive(byte _sock);
+void getMAC(byte* buff,byte _sock);
+void getIP(byte* buff,byte _sock);
 
 #ifdef __cplusplus
 }
