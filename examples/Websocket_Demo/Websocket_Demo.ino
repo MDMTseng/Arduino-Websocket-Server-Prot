@@ -14,7 +14,9 @@
  */
 
 #include <SPI.h>
+#define private public 
 #include <Ethernet.h>
+#undef private
 #include <WebSocketProtocol.h>
 #include "utility/w5100.h"
 #include "utility/socket.h"
@@ -49,89 +51,99 @@ void setup() {
 
   DEBUG_print("Chat server address:");
   DEBUG_println(Ethernet.localIP());
-  setRetryTimeout(4,1000);
+  setRetryTimeout(4, 1000);
 }
 
-unsigned int counter2Pin=0;
+unsigned int counter2Pin = 0;
+byte LiveClient = 0;
+void OnClientsChange()
+{
 
-byte LiveClient=0;
+  LiveClient = countConnected();
+  retPackage[0] = 0x81;
+  sprintf((retPackage + 2), "Your Socket: @  Total live: %d", LiveClient);
+  retPackage[1] = strlen(retPackage + 2);
+}
 void loop() {
   // wait for a new client:
-  if(counter2Pin++>1000)
+  if (LiveClient)
   {
-    PingAllClient();
-    clearUnreachableClient();
-    
-    LiveClient=countConnected();
-    retPackage[0]=0x81;
-    sprintf((retPackage+2),"Your Socket: @  Total live: %d",LiveClient);
-    retPackage[1]=strlen(retPackage+2);
-    counter2Pin=0;
+
+    if (counter2Pin++ > 1000)
+    {
+      PingAllClient();
+      clearUnreachableClient();
+      counter2Pin = 0;
+      OnClientsChange();
+    }
+    delay(10 >> LiveClient);
   }
-  delay(10>>LiveClient);
+  else
+    delay(100);
   EthernetClient client = server.available();
 
   if (!client)return;
-  
-  
 
-    buffiter = buff;
-    unsigned int  KL = 0;
 
-    unsigned int PkgL =  client.available();
-    KL = PkgL;
-    recv(client._sock, (uint8_t*)buffiter, PkgL);
-    WebSocketProtocol* WSPptr  = findFromProt(client);
-    if (WSPptr == null)
-    {
-      client.stop();
-      return;
-    }
-    client = WSPptr->getClientOBJ();
-    char *recvData = WSPptr->processRecvPkg(buff, KL);
-    if (WSPptr->getState() == WS_HANDSHAKE)
-    {
-      DEBUG_print("WS_HANDSHAKE::");
-      DEBUG_println(client._sock);
-      client.print(buff);
-      return;
-    }
-    if (WSPptr->getRecvOPState() == WSOP_CLOSE)
-    {
-      
-      DEBUG_print("Normal close::");
-      DEBUG_println(client._sock);
-      client.stop();
-      WSPptr->rmClientOBJ();
-      return;
-    }
-    if (WSPptr->getRecvOPState() == WSOP_UNKNOWN)
-    {
-      DEBUG_print("unusual close::");
-      DEBUG_println(client._sock);
-      client.print(WSPptr->codeSendPkg_endConnection(buff));
 
-      client.stop();
-      WSPptr->rmClientOBJ();
-      return;
-    }
-   // *(recvData-2)= 0x81;
-   // WSPptr->getClientOBJ().print(recvData-2);
-    retPackage[15]=client._sock+'0';
-    WSPptr->getClientOBJ().print(retPackage);
-  
+  buffiter = buff;
+  unsigned int  KL = 0;
+
+  unsigned int PkgL =  client.available();
+  KL = PkgL;
+  recv(client._sock, (uint8_t*)buffiter, PkgL);
+  WebSocketProtocol* WSPptr  = findFromProt(client);
+  if (WSPptr == null)
+  {
+    client.stop();
+    return;
+  }
+  client = WSPptr->getClientOBJ();
+  char *recvData = WSPptr->processRecvPkg(buff, KL);
+  if (WSPptr->getState() == WS_HANDSHAKE)
+  {
+    DEBUG_print("WS_HANDSHAKE::");
+    DEBUG_println(client._sock);
+    client.print(buff);
+    return;
+  }
+  if (WSPptr->getRecvOPState() == WSOP_CLOSE)
+  {
+
+    DEBUG_print("Normal close::");
+    DEBUG_println(client._sock);
+    client.stop();
+    WSPptr->rmClientOBJ();
+    return;
+  }
+  if (WSPptr->getRecvOPState() == WSOP_UNKNOWN)
+  {
+    DEBUG_print("unusual close::");
+    DEBUG_println(client._sock);
+    client.print(WSPptr->codeSendPkg_endConnection(buff));
+
+    client.stop();
+    WSPptr->rmClientOBJ();
+    return;
+  }
+  // *(recvData-2)= 0x81;
+  // WSPptr->getClientOBJ().print(recvData-2);
+  retPackage[15] = client._sock + '0';
+  WSPptr->getClientOBJ().print(retPackage);
+
 }
 void clearUnreachableClient()
 {
   for (byte i = 0; i < 4; i++)
   {
     EthernetClient Rc = WSP[i].getClientOBJ();
-    if (Rc && Rc.status() == SnSR::CLOSED)
+    if (Rc && Rc.status() == 0x00)
     {
       DEBUG_print("clear timeout sock::");
       DEBUG_println(Rc._sock);
       Rc.stop();
       WSP[i].rmClientOBJ();
+      OnClientsChange();
     }
   }
 }
@@ -171,7 +183,7 @@ WebSocketProtocol* findFromProt(EthernetClient client)
   }
 
   DEBUG_print("NO exist sock, find available:::");
-  LiveClient=countConnected();
+
   DEBUG_println(LiveClient);
   for (byte i = 0; i < 4; i++)
   {
@@ -182,6 +194,7 @@ WebSocketProtocol* findFromProt(EthernetClient client)
       DEBUG_print("  ::::  ");
       DEBUG_println(WSP[i].getClientOBJ());
       WSP[i].setClientOBJ(client);
+      OnClientsChange();
       return WSP + i;
     }
   }

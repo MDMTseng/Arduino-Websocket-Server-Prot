@@ -46,7 +46,10 @@ www.codebender.cc
 
 #include <Arduino.h> // Arduino 1.0 or greater is required
 #include <stdlib.h>
+
+#define private public //cheating- to access private _sock
 #include <Ethernet.h>
+#undef private
 //#include <Ethernet.h>// Just for manage client, it doesn't do data transfer.
 
 
@@ -74,7 +77,6 @@ public:
 	
 	
 	*/
-    
     WebSocketProtocol(const char *urlPrefix = "/");
 	
     //send(codeSendPkg(data2Send,Len))
@@ -93,6 +95,7 @@ public:
 	
 	char * codeSendPkg_getPkgContentSec(char *Pkg);
 	char * codeSendPkg_endConnection(char *Pkg);
+	
 private:
     EthernetClient clientOBJ;
     struct WPFrame {

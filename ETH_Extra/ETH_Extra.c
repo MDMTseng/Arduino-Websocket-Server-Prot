@@ -75,12 +75,21 @@ unsigned int SPI_Write16(unsigned int addr, unsigned int data)
 
 byte ReadInfo(byte CMD,byte _sock)
 {
-	return SPI_Read(ADDR(_Sn_IR,_sock));
+	return SPI_Read(ADDR(CMD,_sock));
 }
 
-byte ReadSn_IR(byte _sock)
+byte ReadSnIR(byte _sock)
 {
-	return SPI_Read(ADDR(_Sn_IR,_sock));
+	return SPI_Read(ADDR(SnIR,_sock));
+}
+byte ReadSnSR(byte _sock)
+{
+	return SPI_Read(ADDR(SnSR,_sock));
+}
+
+void SetSnCR(byte data,byte _sock)
+{
+  SPI_Write(ADDR(SnCR,_sock), data);
 }
 
 void setRetryTimeout(byte retryTimes,unsigned int TimeOut100us)

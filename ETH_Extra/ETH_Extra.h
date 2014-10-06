@@ -8,7 +8,6 @@
 #include <Arduino.h>
 #define _SOCKINC 0x100
 #define _SOCKBASE 0x400
-#define _Sn_IR 0x2
 
 #define SPI_PORT PORTB
 #define SPI_DDR  DDRB
@@ -33,6 +32,8 @@
 
 #define SnDIPR      0xC//sock IP
 #define SnDHAR      0x6//sock MAC
+#define SnSR      0x3   //sock state
+#define SnIR 0x2
 
 
 #define MaxSockNumber 4
@@ -46,10 +47,13 @@ inline void SPI_Write(unsigned int addr,unsigned char data);
 inline unsigned char SPI_Read(unsigned int addr);
 
 byte ReadSn_IR(byte _sock);
+byte ReadSnSR(byte _sock);
+void SetSnCR(byte data,byte _sock);
 void setRetryTimeout(byte retryTimes,unsigned int TimeOut100us);
 void testAlive(byte _sock);
 void getMAC(byte* buff,byte _sock);
 void getIP(byte* buff,byte _sock);
+
 
 #ifdef __cplusplus
 }

@@ -29,37 +29,60 @@ Sec-WebSocket-Version: 13
 Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits, x-webkit-deflate-frame
 User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gec
 */
-#define HANDSHAKE_GETHTTP "GET / HTTP/1.1"
-#define HANDSHAKE_UPGRAGE "Upgrade:"//
-#define HANDSHAKE_CONNECTION "Connection:"//
-#define HANDSHAKE_Host "Host:"//
-#define HANDSHAKE_ORIGIN "Origin:"//
-#define HANDSHAKE_PRAGMA "Pragma:"//ignore
-#define HANDSHAKE_CACHECON "Cache-Control:"
-#define HANDSHAKE_SECWSKEY "Sec-WebSocket-Key:"//
-#define HANDSHAKE_SECWSVER "Sec-WebSocket-Version:"//
-#define HANDSHAKE_EXTEN "Sec-WebSocket-Extensions:"//ignore
+#define MEMCODE_(x)  pgm_read_byte_near(x)
 
-#define HANDSHAKE_HEADER "HTTP/1.1 101 Switching Protocols\r\n\
+char HANDSHAKE_GETHTTP[] PROGMEM= ("GET / HTTP/1.1");
+char HANDSHAKE_UPGRAGE [] PROGMEM= ("Upgrade:");//
+char HANDSHAKE_CONNECTION [] PROGMEM= ("Connection:");//
+char HANDSHAKE_Host [] PROGMEM= ("Host:");//
+char HANDSHAKE_ORIGIN [] PROGMEM= ("Origin:");//
+char HANDSHAKE_PRAGMA [] PROGMEM= ("Pragma:");//ignore
+char HANDSHAKE_CACHECON [] PROGMEM= ("Cache-Control:");
+char HANDSHAKE_SECWSKEY [] PROGMEM= ("Sec-WebSocket-Key:");//
+char HANDSHAKE_SECWSVER [] PROGMEM= ("Sec-WebSocket-Version:");//
+char HANDSHAKE_EXTEN [] PROGMEM= ("Sec-WebSocket-Extensions:");//ignore
+
+char HANDSHAKE_HEADER [] PROGMEM= ("HTTP/1.1 101 Switching Protocols\r\n\
 Upgrade: websocket\r\n\
 Connection: Upgrade\r\n\
-Sec-WebSocket-Accept: "
+Sec-WebSocket-Accept: ");
 
 
+char HANDSHAKE_GUIDAPPEND[] PROGMEM="258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+
+bool CheckHead(char* str,char* pattern)
+{
+	char i=0;
+	char ch= MEMCODE_(pattern);
+		//Serial.println();
+	for(;ch!=0;str++)
+	{	
+		//Serial.print(ch);
+		if(*str!=ch)return false;
+		i++;
+		ch= MEMCODE_(pattern+i);
+	}
+		//Serial.println();
+	return true;
+}
+/*
 bool CheckHead(char* str,char* pattern)
 {
 	for(;*pattern;str++,pattern++)
 		if(*str!=*pattern)return false;
 	return true;
 }
+*/
+
 void WebSocketProtocol::printState()
 {
 	switch(state)
 	{
-		case DISCONNECTED: Serial.print("DISCONNECTED");break;
-		case WS_HANDSHAKE: Serial.print("WS_HANDSHAKE");break;
-		case WS_CONNECTED: Serial.print("WS_CONNECTED");break;
-		case UNKNOWN_CONNECTED: Serial.print("UNKNOWN_CONNECTED");break;
+		case DISCONNECTED: Serial.print(F("DISCONNECTED"));break;
+		case WS_HANDSHAKE: Serial.print(F("WS_HANDSHAKE"));break;
+		case WS_CONNECTED: Serial.print(F("WS_CONNECTED"));break;
+		case UNKNOWN_CONNECTED: Serial.print(F("UNKNOWN_CONNECTED"));break;
 	}
 }
 
@@ -67,9 +90,9 @@ void WebSocketProtocol::printRecvOPState()
 {
 	switch(recvOPState)
 	{
-		case WSOP_CLOSE: Serial.print("WSOP_CLOSE");break;
-		case WSOP_OK: Serial.print("WSOP_OK");break;
-		case WSOP_UNKNOWN: Serial.print("WSOP_UNKNOWN");break;
+		case WSOP_CLOSE: Serial.print(F("WSOP_CLOSE"));break;
+		case WSOP_OK: Serial.print(F("WSOP_OK"));break;
+		case WSOP_UNKNOWN: Serial.print(F("WSOP_UNKNOWN"));break;
 	}
 }
 WebSocketProtocol::WebSocketProtocol(const char *urlPrefix ):
@@ -213,6 +236,7 @@ char * WebSocketProtocol::doHandshake(char *str, unsigned int length){
 	
 	byte L=length;
 	
+		//Serial.println(bite_ptr);
 
     for (;*bite_ptr;) {
 	    if(*bite_ptr != '\n'){
@@ -235,19 +259,19 @@ char * WebSocketProtocol::doHandshake(char *str, unsigned int length){
 		// http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html
 		if (!hasUpgrade && CheckHead(bite_ptr,HANDSHAKE_UPGRAGE)) {
 			// OK, it's a websockets handshake for sure
-			bite_ptr+=sizeof(HANDSHAKE_UPGRAGE);
+			bite_ptr+=strlen(HANDSHAKE_UPGRAGE);
 			hasUpgrade = true;	
 		} else if (!hasConnection && CheckHead(bite_ptr, HANDSHAKE_CONNECTION)) {
-			bite_ptr+=sizeof(HANDSHAKE_CONNECTION);
+			bite_ptr+=strlen(HANDSHAKE_CONNECTION);
 			hasConnection = true;
 		} else if (!hasOrigin && CheckHead(bite_ptr, HANDSHAKE_ORIGIN)) {
-			bite_ptr+=sizeof(HANDSHAKE_ORIGIN);
+			bite_ptr+=strlen(HANDSHAKE_ORIGIN);
 			hasOrigin = true;
 		} else if (!hasHost && CheckHead(bite_ptr, HANDSHAKE_Host)) {
-			bite_ptr+=sizeof(HANDSHAKE_Host);
+			bite_ptr+=strlen(HANDSHAKE_Host);
 			hasHost = true;
 		} else if (!hasKey && CheckHead(bite_ptr, HANDSHAKE_SECWSKEY)) {
-			bite_ptr+=sizeof(HANDSHAKE_SECWSKEY)-1;
+			bite_ptr+=strlen(HANDSHAKE_SECWSKEY);
 			for(;*bite_ptr==' ';bite_ptr++)//skip space
 				if(!*bite_ptr){state=UNKNOWN_CONNECTED;return null;}//sudden termination error
 			byte tmpc=0;
@@ -258,8 +282,8 @@ char * WebSocketProtocol::doHandshake(char *str, unsigned int length){
 			
 			hasKey=true;
 		} else if (!isSupportedVersion && CheckHead(bite_ptr,HANDSHAKE_SECWSVER)
-		&& strstr(bite_ptr+sizeof(HANDSHAKE_SECWSVER), "13")) {
-			bite_ptr+=sizeof(HANDSHAKE_SECWSVER)+2;
+		&& strstr(bite_ptr+strlen(HANDSHAKE_SECWSVER)+1, "13")) {
+			bite_ptr+=strlen(HANDSHAKE_SECWSVER)+3;
 			isSupportedVersion = true;
 			if (hasUpgrade && hasConnection && isSupportedVersion 
 			&& hasHost && hasOrigin && hasKey)
@@ -273,14 +297,15 @@ char * WebSocketProtocol::doHandshake(char *str, unsigned int length){
     // Assert that we have all headers that are needed. If so, go ahead and
     // send response headers.
     if (hasUpgrade && hasConnection && isSupportedVersion && hasHost && hasOrigin && hasKey) {
-        strcat(key, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"); // Add the omni-valid GUID
+        //strcat(key,HANDSHAKE_GUIDAPPEND); // Add the omni-valid GUID
 		
+        strcpy_P(key+strlen(key), HANDSHAKE_GUIDAPPEND);
 		
         Sha1.init();
         Sha1.print(key);
         uint8_t *hash = Sha1.result();
-		strcpy(bite_ptr,HANDSHAKE_HEADER);
-		bite_ptr+=sizeof(HANDSHAKE_HEADER)-1;
+		strcpy_P(bite_ptr,HANDSHAKE_HEADER);
+		bite_ptr+=strlen(HANDSHAKE_HEADER);
 	
         base64_encode(bite_ptr, (char*)hash, 20);
 		for(;*bite_ptr;bite_ptr++);
@@ -289,6 +314,7 @@ char * WebSocketProtocol::doHandshake(char *str, unsigned int length){
 		strcpy(bite_ptr,CRLF);
 		bite_ptr+=sizeof(CRLF)-1;
 		
+		//Serial.println(bite_ptr);
 		
     } else {
         // Nope, failed handshake. Disconnect
