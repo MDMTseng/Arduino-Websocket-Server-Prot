@@ -14,7 +14,7 @@
  */
 
 #include <SPI.h>
-#define private public 
+#define private public //dirty trick
 #include <Ethernet.h>
 #undef private
 #include <WebSocketProtocol.h>
@@ -56,25 +56,30 @@ void setup() {
 
 unsigned int counter2Pin = 0;
 byte LiveClient = 0;
-void OnClientsChange()
-{
 
-  LiveClient = countConnected();
-  retPackage[0] = 0x81;
-  sprintf((retPackage + 2), "Your Socket: @  Total live: %d", LiveClient);
+char* makeRetPkg(WebSocketProtocol* WProt,EthernetClient* client,char* RECVData)
+{
+  //[0x81][Length of payload][payload(smaller than 128 bytes)]
+  retPackage[0] = 0x81;//Ret Pkg start with 0x81
+  
+  sprintf((retPackage + 2), "Your Socket: @  Total live: %d", LiveClient);//Your part, modify this
   retPackage[1] = strlen(retPackage + 2);
+  //2nd byte is payload length smaller than 128
+
 }
+
+
 void loop() {
   // wait for a new client:
   if (LiveClient)
   {
 
-    if (counter2Pin++ > 1000)
+    if (counter2Pin++ > 1000)//check client still alive periodically 
     {
       PingAllClient();
       clearUnreachableClient();
       counter2Pin = 0;
-      OnClientsChange();
+      //OnClientsChange();
     }
     delay(10 >> LiveClient);
   }
@@ -91,7 +96,7 @@ void loop() {
 
   unsigned int PkgL =  client.available();
   KL = PkgL;
-  recv(client._sock, (uint8_t*)buffiter, PkgL);
+  recv(client._sock, (uint8_t*)buffiter, PkgL);//get raw data
   WebSocketProtocol* WSPptr  = findFromProt(client);
   if (WSPptr == null)
   {
@@ -99,15 +104,15 @@ void loop() {
     return;
   }
   client = WSPptr->getClientOBJ();
-  char *recvData = WSPptr->processRecvPkg(buff, KL);
-  if (WSPptr->getState() == WS_HANDSHAKE)
+  char *recvData = WSPptr->processRecvPkg(buff, KL);//Check/process is the websocket PKG
+  if (WSPptr->getState() == WS_HANDSHAKE)//On hand shaking
   {
     DEBUG_print("WS_HANDSHAKE::");
     DEBUG_println(client._sock);
     client.print(buff);
     return;
   }
-  if (WSPptr->getRecvOPState() == WSOP_CLOSE)
+  if (WSPptr->getRecvOPState() == WSOP_CLOSE)//websocket close
   {
 
     DEBUG_print("Normal close::");
@@ -117,6 +122,8 @@ void loop() {
     return;
   }
   if (WSPptr->getRecvOPState() == WSOP_UNKNOWN)
+  //not websocket package. might be AJAX or normal TCP data
+  //handle it by yourself.
   {
     DEBUG_print("unusual close::");
     DEBUG_println(client._sock);
@@ -126,10 +133,11 @@ void loop() {
     WSPptr->rmClientOBJ();
     return;
   }
-  // *(recvData-2)= 0x81;
-  // WSPptr->getClientOBJ().print(recvData-2);
-  retPackage[15] = client._sock + '0';
-  WSPptr->getClientOBJ().print(retPackage);
+  
+  // Normal websocket section
+  // client::WSPptr
+  // recv Data::recvData
+  WSPptr->getClientOBJ().print(makeRetPkg(WSPptr,&client,recvData));
 
 }
 void clearUnreachableClient()
@@ -143,7 +151,7 @@ void clearUnreachableClient()
       DEBUG_println(Rc._sock);
       Rc.stop();
       WSP[i].rmClientOBJ();
-      OnClientsChange();
+      //OnClientsChange();
     }
   }
 }
@@ -194,7 +202,7 @@ WebSocketProtocol* findFromProt(EthernetClient client)
       DEBUG_print("  ::::  ");
       DEBUG_println(WSP[i].getClientOBJ());
       WSP[i].setClientOBJ(client);
-      OnClientsChange();
+     // OnClientsChange();
       return WSP + i;
     }
   }
