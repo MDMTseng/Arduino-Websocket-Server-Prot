@@ -21,6 +21,7 @@
 #include "utility/w5100.h"
 #include "utility/socket.h"
 #include <ETH_Extra.h>
+//#define DEBUG_
 #ifdef DEBUG_
 #define DEBUG_print(A, ...) Serial.print(A,##__VA_ARGS__)
 #define DEBUG_println(A, ...) Serial.println(A,##__VA_ARGS__)
@@ -64,6 +65,8 @@ char* makeRetPkg(WebSocketProtocol* WProt,EthernetClient* client,char* RECVData)
   
   sprintf((retPackage + 2), "Your Socket: @  Total live: %d", LiveClient);//Your part, modify this
   retPackage[1] = strlen(retPackage + 2);
+  
+  return retPackage;
   //2nd byte is payload length smaller than 128
 
 }
@@ -134,6 +137,7 @@ void loop() {
     return;
   }
   
+    DEBUG_println("Normal websocket::");
   // Normal websocket section
   // client::WSPptr
   // recv Data::recvData
