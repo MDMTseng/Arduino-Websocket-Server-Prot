@@ -5,22 +5,24 @@
  It demostrate how the library <WebSocketProtocol.h> works
  and how to handle the state changes.
 
- dependent library:WIZNET <Ethernet.h>
+ dependent library:WIZNET <Ethernet.h>,ETH_Extra.h
 
-
-
- created 11 June 2014
+ created  14 Feb 2015
  by MDM Tseng
  */
 
 #include <SPI.h>
-#define private public 
+#define private public //dirty trick
 #include <Ethernet.h>
 #undef private
 #include <WebSocketProtocol.h>
 #include "utility/w5100.h"
 #include "utility/socket.h"
+
+
+
 #include <ETH_Extra.h>
+#define DEBUG_
 #ifdef DEBUG_
 #define DEBUG_print(A, ...) Serial.print(A,##__VA_ARGS__)
 #define DEBUG_println(A, ...) Serial.println(A,##__VA_ARGS__)
@@ -39,15 +41,16 @@ IPAddress subnet(255, 255, 0, 0);
 EthernetServer server(5213);
 WebSocketProtocol WSP[4];
 
-char buff[600];
+char buff[1024];
 char *buffiter;
 
-char retPackage[60];
+char retPackage[1024];
+
+WebSocketProtocol::WPFrameInfo retframeInfo;//={.opcode = 1, .isMasking = 0, .isFinal = 1 };
 void setup() {
   Ethernet.begin(mac, ip, gateway, subnet);
   server.begin();
   Serial.begin(57600);
-
 
   DEBUG_print("Chat server address:");
   DEBUG_println(Ethernet.localIP());
@@ -56,34 +59,75 @@ void setup() {
 
 unsigned int counter2Pin = 0;
 byte LiveClient = 0;
-void OnClientsChange()
+
+void RECVWebSocketPkg(WebSocketProtocol* WProt, EthernetClient* client, char* RECVData)
+{  
+  if (WProt->getPkgframeInfo().opcode == 2)//binary data
+  {
+    DEBUG_print("Binary");
+    RECVWebSocketPkg_binary( WProt, client, RECVData);
+    return;
+  }
+  unsigned int RECVDataL=WProt->getPkgframeInfo().length;
+  retframeInfo.opcode = 1; //text
+  retframeInfo.isMasking = 0; //no masking on server side
+  retframeInfo.isFinal = 1; //is Final package
+  //If RECVData is text message, it will end with '\0'
+  
+  
+  char *dataBuff = retPackage + 8;//write data after 8 bytes(8 bytes are for header)
+  unsigned int MessageL = sprintf(dataBuff, "RECV:%s", RECVData); //echo
+  unsigned int totalPackageL;
+  char* retPkg = WProt->codeFrame(dataBuff, MessageL, &retframeInfo, &totalPackageL); //get complete package might have some shift compare to "retPackage"
+  WProt->getClientOBJ().write(retPkg, totalPackageL);
+}
+
+
+void RECVWebSocketPkg_binary(WebSocketProtocol* WProt, EthernetClient* client, char* RECVData)
 {
 
-  LiveClient = countConnected();
-  retPackage[0] = 0x81;
-  sprintf((retPackage + 2), "Your Socket: @  Total live: %d", LiveClient);
-  retPackage[1] = strlen(retPackage + 2);
+  unsigned int RECVDataL=WProt->getPkgframeInfo().length;
+  retframeInfo.opcode = 2; //binary
+  retframeInfo.isMasking = 0; //no masking on server side
+  retframeInfo.isFinal = 1; //is Final package
+
+  char *dataBuff = retPackage + 8;//write data after 8 bytes(8 bytes are for header)
+  dataBuff[0]=0x55;//add data in front
+  memcpy ( dataBuff+1,RECVData, RECVDataL );//echo
+  unsigned int totalPackageL;
+  char* retPkg = WProt->codeFrame(dataBuff, RECVDataL+1, &retframeInfo, &totalPackageL); //get complete package might have some shift compare to "retPackage"
+  WProt->getClientOBJ().write(retPkg, totalPackageL);
+  //DoRECVData( WProt, client, RECVData);
 }
+
+
+
+
+
+
+
 void loop() {
   // wait for a new client:
-  if (LiveClient)
-  {
 
-    if (counter2Pin++ > 1000)
-    {
-      PingAllClient();
-      clearUnreachableClient();
-      counter2Pin = 0;
-      OnClientsChange();
-    }
-    delay(10 >> LiveClient);
-  }
-  else
-    delay(100);
   EthernetClient client = server.available();
 
-  if (!client)return;
+  if (!client)
+  {
+    if (LiveClient)
+    {
 
+      if (counter2Pin++ > 1000)//check client still alive periodically
+      {
+        PingAllClient();
+        clearUnreachableClient();
+        counter2Pin = 0;
+      }
+      delay(10 >> LiveClient);
+    }
+    else
+      delay(1);
+    return;
+  }
 
 
   buffiter = buff;
@@ -91,7 +135,7 @@ void loop() {
 
   unsigned int PkgL =  client.available();
   KL = PkgL;
-  recv(client._sock, (uint8_t*)buffiter, PkgL);
+  recv(client._sock, (uint8_t*)buffiter, PkgL);//get raw data
   WebSocketProtocol* WSPptr  = findFromProt(client);
   if (WSPptr == null)
   {
@@ -99,15 +143,20 @@ void loop() {
     return;
   }
   client = WSPptr->getClientOBJ();
-  char *recvData = WSPptr->processRecvPkg(buff, KL);
-  if (WSPptr->getState() == WS_HANDSHAKE)
+
+
+  char *recvData = WSPptr->processRecvPkg(buff, KL);//Check/process is the websocket PKG
+
+  byte frameL = WSPptr->getPkgframeInfo().length; //get frame
+
+  if (WSPptr->getState() == WS_HANDSHAKE)//On hand shaking
   {
     DEBUG_print("WS_HANDSHAKE::");
     DEBUG_println(client._sock);
     client.print(buff);
     return;
   }
-  if (WSPptr->getRecvOPState() == WSOP_CLOSE)
+  if (WSPptr->getRecvOPState() == WSOP_CLOSE)//websocket close
   {
 
     DEBUG_print("Normal close::");
@@ -117,6 +166,8 @@ void loop() {
     return;
   }
   if (WSPptr->getRecvOPState() == WSOP_UNKNOWN)
+    //not websocket package. might be AJAX or normal TCP data
+    //handle it by yourself.
   {
     DEBUG_print("unusual close::");
     DEBUG_println(client._sock);
@@ -126,14 +177,16 @@ void loop() {
     WSPptr->rmClientOBJ();
     return;
   }
-  // *(recvData-2)= 0x81;
-  // WSPptr->getClientOBJ().print(recvData-2);
-  retPackage[15] = client._sock + '0';
-  WSPptr->getClientOBJ().print(retPackage);
+
+  // Normal websocket section
+  // client::WSPptr
+  // recv Data::recvData
+  RECVWebSocketPkg(WSPptr, &client, recvData);
 
 }
 void clearUnreachableClient()
 {
+  LiveClient = 0;
   for (byte i = 0; i < 4; i++)
   {
     EthernetClient Rc = WSP[i].getClientOBJ();
@@ -143,8 +196,10 @@ void clearUnreachableClient()
       DEBUG_println(Rc._sock);
       Rc.stop();
       WSP[i].rmClientOBJ();
-      OnClientsChange();
+
     }
+    else if (Rc)
+      LiveClient++;
   }
 }
 void PingAllClient()
@@ -154,12 +209,6 @@ void PingAllClient()
     {
       //byte SnIR = ReadSn_IR(WSP[i].getClientOBJ()._sock);
 
-
-      /*buff[0] = 0x81;
-      buff[1] = 1;
-      buff[2] = 1;
-      buff[3] = 0;
-      WSP[i].getClientOBJ().print(buff);*/
       testAlive(WSP[i].getClientOBJ()._sock);
     }
 }
@@ -175,6 +224,7 @@ byte countConnected()
 WebSocketProtocol* findFromProt(EthernetClient client)
 {
 
+  LiveClient = 0;
   for (byte i = 0; i < 4; i++)
   {
     EthernetClient Rc = WSP[i].getClientOBJ();
@@ -182,21 +232,25 @@ WebSocketProtocol* findFromProt(EthernetClient client)
       return WSP + i;
   }
 
-  DEBUG_print("NO exist sock, find available:::");
-
-  DEBUG_println(LiveClient);
   for (byte i = 0; i < 4; i++)
   {
     if (!WSP[i].getClientOBJ())
     {
 
-      DEBUG_print(i);
-      DEBUG_print("  ::::  ");
-      DEBUG_println(WSP[i].getClientOBJ());
       WSP[i].setClientOBJ(client);
-      OnClientsChange();
+
+      LiveClient = i;
+      byte ii = i;
+      for (; ii < 4; ii++)if (WSP[ii].getClientOBJ())LiveClient++;
+
+      DEBUG_print("new socket:::");
+      DEBUG_print(client._sock);
+      DEBUG_print('/');
+      DEBUG_println(LiveClient);
+      // OnClientsChange();
       return WSP + i;
     }
   }
   return null;
 }
+

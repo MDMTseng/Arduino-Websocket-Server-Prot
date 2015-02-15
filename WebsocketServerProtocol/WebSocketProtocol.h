@@ -70,7 +70,15 @@ www.codebender.cc
 	
 class WebSocketProtocol {
 public:
-    //typedef void callBack(State nowState);
+
+	typedef struct {
+    bool isFinal;
+    byte opcode;
+    byte mask[4];
+	byte isMasking;
+    unsigned int length;
+    unsigned long long length64;
+	}WPFrameInfo;
 	/*
 	DISCONNECTED---(handshake pkg)-->HANDSHAKE--(Send handshake pkg)-->
 	CONNECTED--(Send close pkg)-->DISCONNECTED
@@ -96,14 +104,14 @@ public:
 	char * codeSendPkg_getPkgContentSec(char *Pkg);
 	char * codeSendPkg_endConnection(char *Pkg);
 	
+	WebSocketProtocol::WPFrameInfo getPkgframeInfo();
+	
+    char * decodeFrame(char *str, unsigned int length,WebSocketProtocol::WPFrameInfo *frameInfo);
+    char * codeFrame(char *str_padLeast9B, unsigned int length,WebSocketProtocol::WPFrameInfo *frameInfo,unsigned int *totalL);
+	void maskData(char *data, unsigned int length,byte* mask_4);
 private:
     EthernetClient clientOBJ;
-    struct WPFrame {
-    bool isFinal;
-    byte opcode;
-    byte mask[4];
-    byte length;
-	} frame;
+    WPFrameInfo recvFrameInfo;
     WSState state;
 	RecvOP recvOPState;
     const char *socket_urlPrefix;
@@ -115,7 +123,6 @@ private:
     // Reads a frame from client. Returns false if user disconnects, 
     // or unhandled frame is received. Server must then disconnect, or an error occurs.
     
-    char * decodeRecvPkg(char *str, unsigned int length);
 	
 	
 };

@@ -31,7 +31,7 @@ User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like 
 */
 #define MEMCODE_(x)  pgm_read_byte_near(x)
 
-char HANDSHAKE_GETHTTP[] PROGMEM= ("GET / HTTP/1.1");
+char HANDSHAKE_GETHTTP[] PROGMEM= ("GET /");
 char HANDSHAKE_UPGRAGE [] PROGMEM= ("Upgrade:");//
 char HANDSHAKE_CONNECTION [] PROGMEM= ("Connection:");//
 char HANDSHAKE_Host [] PROGMEM= ("Host:");//
@@ -127,17 +127,40 @@ char * WebSocketProtocol::processRecvPkg(char *str, unsigned int length)
 	if (state == UNKNOWN_CONNECTED)return str;
 	//else if(state == WS_CONNECTED)
 	state = WS_CONNECTED;
-	return decodeRecvPkg(str, length);
+	return decodeFrame(str, length,&recvFrameInfo);
 	
 	
 	
 }
 
-
-char * WebSocketProtocol::decodeRecvPkg(char *str, unsigned int length)
+void WebSocketProtocol::maskData(char *data, unsigned int length,byte* mask_4)
+{
+	byte *mask=mask_4;
+		
+		char* tmpPtr=data;
+		byte maskC=0;
+		
+		unsigned int L=length>>3;
+		for ( ;L; L--)//try to minimize computation time
+		{
+			*tmpPtr++ = *tmpPtr^ mask[0];
+			*tmpPtr++ = *tmpPtr^ mask[1];
+			*tmpPtr++ = *tmpPtr^ mask[2];
+			*tmpPtr++ = *tmpPtr^ mask[3];
+			*tmpPtr++ = *tmpPtr^ mask[0];
+			*tmpPtr++ = *tmpPtr^ mask[1];
+			*tmpPtr++ = *tmpPtr^ mask[2];
+			*tmpPtr++ = *tmpPtr^ mask[3];
+		}
+		unsigned int i;
+		L=(length&0x7);
+		for (i=0;i<L;i++)
+			*tmpPtr++ = *tmpPtr^ mask[i&3];
+}
+char * WebSocketProtocol::decodeFrame(char *str, unsigned int length,WebSocketProtocol::WPFrameInfo *frameInfo)
 {
 	char* striter=str;
-	if(length<6)
+	if(length<2)
 	{
 		recvOPState=WSOP_UNKNOWN;
 		return null;
@@ -145,48 +168,59 @@ char * WebSocketProtocol::decodeRecvPkg(char *str, unsigned int length)
 	
     byte bite=*(striter++);
 	
-    frame.opcode = bite & 0xf; // Opcode
-    frame.isFinal = bite & 0x80; // Final frame?
+    frameInfo->opcode = bite & 0xf; // Opcode
+    frameInfo->isFinal = bite & 0x80; // Final frame?
     // Determine length (only accept <= 64 for now)
     bite =*(striter++);
-    frame.length = bite & 0x7f; // Length of payload
-	/*if (frame.length > 64) {
-        #ifdef DEBUG
-            Serial.print("Too big frame to handle. Length: ");
-            Serial.println(frame.length);
-        #endif
-        client.write((uint8_t) 0x08);
-        client.write((uint8_t) 0x02);
-        client.write((uint8_t) 0x03);
-        client.write((uint8_t) 0xf1);
-        return false;
-    }*/
-	frame.mask[0] = *(striter++);
-    frame.mask[1] = *(striter++);
-    frame.mask[2] = *(striter++);
-    frame.mask[3] = *(striter++);
-	unsigned int i;
-	for ( i = 0; i < frame.length; i++)
-		striter[i] = striter[i]^ frame.mask[i &0x3];//%4
-	striter[i]='\0';
-	striter[-1]=i;//trick to store string size 0~255;
-    if (!frame.isFinal) {
-        // We don't handle fragments! Close and disconnect.
-       /* #ifdef DEBUG
-            Serial.println("Non-final frame, doesn't handle that.");
-        #endif
-        client.print((uint8_t) 0x08);
-        client.write((uint8_t) 0x02);
-        client.write((uint8_t) 0x03);
-        client.write((uint8_t) 0xf1);
-        return false;*/
+    frameInfo->isMasking = bite & 0x80; // Length of payload
+    frameInfo->length = bite & 0x7f; // Length of payload
+	
+	if (frameInfo->length==126) {
+		frameInfo->length=(byte)striter[0];
+		frameInfo->length<<=8;
+		frameInfo->length|=(byte)striter[1];
+			
+		striter+=2;	
+    }
+	else if(frameInfo->length==127) {
+		frameInfo->length=~((unsigned int)0);//max unsigned int
+	//imposible for arduino..... 8Byte (64b)Length in total
+		frameInfo->length64=(byte)(striter[0]&0x7F);//the MSB must be 0
+		
+		for(int j=0;j<7;j++)
+		{
+			frameInfo->length64<<=8;
+			frameInfo->length64|=(byte)striter[1+j];
+		}
+		
+		 striter+=8;
+		   // return false;
+		if(frameInfo->length64<~((unsigned int)0))
+		  frameInfo->length=frameInfo->length64;
+		else
+		{
+		  recvOPState=WSOP_UNKNOWN;
+		  return false;
+		}
     }
 	
-	switch (frame.opcode) {
+	if(frameInfo->isMasking)
+	{
+		frameInfo->mask[0] = *(striter++);
+		frameInfo->mask[1] = *(striter++);
+		frameInfo->mask[2] = *(striter++);
+		frameInfo->mask[3] = *(striter++);
+		
+		maskData(striter, frameInfo->length,(byte*)frameInfo->mask);
+	
+	}
+    /*if (!frameInfo->isFinal) {
+    }*/
+	switch (frameInfo->opcode) {
         case 0x01: // Txt frame
-            // Call the user provided function
-            /*if (onData)
-                onData(*this, frame.data, frame.length);*/
+			striter[frameInfo->length]='\0';
+        case 0x00: //cont frame
+        case 0x02: // binary frame
 			recvOPState=WSOP_OK;
 			return striter;
             
@@ -204,11 +238,48 @@ char * WebSocketProtocol::decodeRecvPkg(char *str, unsigned int length)
     }
 	recvOPState=WSOP_UNKNOWN;
 	return null;
-	
-	
-	
 }
 
+char * WebSocketProtocol::codeFrame(char *dat_padLeast8B, unsigned int length,WebSocketProtocol::WPFrameInfo *frameInfo,unsigned int *totalL)
+{
+	char* striter=dat_padLeast8B;
+	char* retDat;
+	frameInfo->length=length;
+	retDat=dat_padLeast8B-2;// the simplest case: op;len;[data]
+	if(frameInfo->isMasking)
+	{
+		maskData(striter, length,frameInfo->mask);
+		retDat-=4;
+		retDat[2]=frameInfo->mask[0];
+		retDat[3]=frameInfo->mask[1];
+		retDat[4]=frameInfo->mask[2];
+		retDat[5]=frameInfo->mask[3];
+		// op;len;mask0;mask1;mask2;mask3;[data]
+	}
+	
+	if(length<126)// op;len;(0/4 mask);[data]
+		retDat[1]=((frameInfo->isMasking)?0x80:0)|length;
+	else
+	{
+		// op;len(126);[2B Length];(0/4 mask);[data]
+		retDat-=2;//2 more Byte for Length 
+		retDat[1]=((frameInfo->isMasking)?0x80:0)|126;
+		retDat[2]=length>>8;
+		retDat[3]=length&0xFF;
+	}
+	
+	retDat[0]=
+	((frameInfo->isFinal)?0x80:0)|frameInfo->opcode;
+	
+	*totalL=dat_padLeast8B-retDat+length;
+	return retDat;
+}
+
+
+WebSocketProtocol::WPFrameInfo WebSocketProtocol::getPkgframeInfo()
+{
+	return recvFrameInfo;
+}
 char * WebSocketProtocol::doHandshake(char *str, unsigned int length){
 
 	if(!CheckHead(str,HANDSHAKE_GETHTTP))
