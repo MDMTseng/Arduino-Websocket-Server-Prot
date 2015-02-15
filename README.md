@@ -1,4 +1,4 @@
-put ETH_Extra and WebsocketServerProtocol into the library folder
+## Arduino Websocket Server Protocol
 
 Websocket Server protocol library in C
 
