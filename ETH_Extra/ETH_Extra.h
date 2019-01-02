@@ -1,11 +1,11 @@
 #ifndef ETH_EXTRA_H
 #define ETH_EXTRA_H
 
+
+#include <Arduino.h>
 #ifdef __cplusplus
  extern "C" {
 #endif
-
-#include <Arduino.h>
 #define _SOCKINC 0x100
 #define _SOCKBASE 0x400
 
@@ -32,8 +32,10 @@
 
 #define SnDIPR      0xC//sock IP
 #define SnDHAR      0x6//sock MAC
-#define SnSR      0x3   //sock state
-#define SnIR 0x2
+
+//Add _ since w5100 put SnIR SnSR as a class
+#define SnSR_      0x3   //sock state
+#define SnIR_ 0x2
 
 
 #define MaxSockNumber 4
