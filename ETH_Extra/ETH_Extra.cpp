@@ -1,6 +1,6 @@
 
 #include "Eth_Extra.h"
-#include <w5100.h>
+#include <utility/w5100.h>
  
 inline void SPI_Write(unsigned int addr, unsigned char data)
 {
@@ -80,11 +80,11 @@ byte ReadInfo(byte CMD,byte _sock)
 
 byte ReadSnIR(byte _sock)
 {
-	return SPI_Read(ADDR(SnIR,_sock));
+	return SPI_Read(ADDR(SnIR_,_sock));
 }
 byte ReadSnSR(byte _sock)
 {
-	return SPI_Read(ADDR(SnSR,_sock));
+	return SPI_Read(ADDR(SnSR_,_sock));
 }
 
 void SetSnCR(byte data,byte _sock)

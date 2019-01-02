@@ -31,24 +31,24 @@ User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like 
 */
 #define MEMCODE_(x)  pgm_read_byte_near(x)
 
-char HANDSHAKE_GETHTTP[] PROGMEM= ("GET /");
-char HANDSHAKE_UPGRAGE [] PROGMEM= ("Upgrade:");//
-char HANDSHAKE_CONNECTION [] PROGMEM= ("Connection:");//
-char HANDSHAKE_Host [] PROGMEM= ("Host:");//
-char HANDSHAKE_ORIGIN [] PROGMEM= ("Origin:");//
-char HANDSHAKE_PRAGMA [] PROGMEM= ("Pragma:");//ignore
-char HANDSHAKE_CACHECON [] PROGMEM= ("Cache-Control:");
-char HANDSHAKE_SECWSKEY [] PROGMEM= ("Sec-WebSocket-Key:");//
-char HANDSHAKE_SECWSVER [] PROGMEM= ("Sec-WebSocket-Version:");//
-char HANDSHAKE_EXTEN [] PROGMEM= ("Sec-WebSocket-Extensions:");//ignore
+const char HANDSHAKE_GETHTTP[] PROGMEM= ("GET /");
+const char HANDSHAKE_UPGRAGE [] PROGMEM= ("Upgrade:");//
+const char HANDSHAKE_CONNECTION [] PROGMEM= ("Connection:");//
+const char HANDSHAKE_Host [] PROGMEM= ("Host:");//
+const char HANDSHAKE_ORIGIN [] PROGMEM= ("Origin:");//
+const char HANDSHAKE_PRAGMA [] PROGMEM= ("Pragma:");//ignore
+const char HANDSHAKE_CACHECON [] PROGMEM= ("Cache-Control:");
+const char HANDSHAKE_SECWSKEY [] PROGMEM= ("Sec-WebSocket-Key:");//
+const char HANDSHAKE_SECWSVER [] PROGMEM= ("Sec-WebSocket-Version:");//
+const char HANDSHAKE_EXTEN [] PROGMEM= ("Sec-WebSocket-Extensions:");//ignore
 
-char HANDSHAKE_HEADER [] PROGMEM= ("HTTP/1.1 101 Switching Protocols\r\n\
+const char HANDSHAKE_HEADER [] PROGMEM= ("HTTP/1.1 101 Switching Protocols\r\n\
 Upgrade: websocket\r\n\
 Connection: Upgrade\r\n\
 Sec-WebSocket-Accept: ");
 
 
-char HANDSHAKE_GUIDAPPEND[] PROGMEM="258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+const char HANDSHAKE_GUIDAPPEND[] PROGMEM="258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 
 bool CheckHead(char* str,char* pattern)
