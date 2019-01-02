@@ -143,19 +143,20 @@ void WebSocketProtocol::maskData(char *data, unsigned int length,byte* mask_4)
 		unsigned int L=length>>3;
 		for ( ;L; L--)//try to minimize computation time
 		{
-			*tmpPtr++ = *tmpPtr^ mask[0];
-			*tmpPtr++ = *tmpPtr^ mask[1];
-			*tmpPtr++ = *tmpPtr^ mask[2];
-			*tmpPtr++ = *tmpPtr^ mask[3];
-			*tmpPtr++ = *tmpPtr^ mask[0];
-			*tmpPtr++ = *tmpPtr^ mask[1];
-			*tmpPtr++ = *tmpPtr^ mask[2];
-			*tmpPtr++ = *tmpPtr^ mask[3];
+			*tmpPtr^= mask[0]; tmpPtr++;
+			*tmpPtr^= mask[1]; tmpPtr++;
+			*tmpPtr^= mask[2]; tmpPtr++;
+			*tmpPtr^= mask[3]; tmpPtr++;
+
+			*tmpPtr^= mask[0]; tmpPtr++;
+			*tmpPtr^= mask[1]; tmpPtr++;
+			*tmpPtr^= mask[2]; tmpPtr++;
+			*tmpPtr^= mask[3]; tmpPtr++;
 		}
 		unsigned int i;
 		L=(length&0x7);
-		for (i=0;i<L;i++)
-			*tmpPtr++ = *tmpPtr^ mask[i&3];
+		for (i=0;i<L;i++,tmpPtr++)
+			*tmpPtr^=mask[i&3];
 }
 char * WebSocketProtocol::decodeFrame(char *str, unsigned int length,WebSocketProtocol::WPFrameInfo *frameInfo)
 {
